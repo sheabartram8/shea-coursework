@@ -97,22 +97,15 @@ class EmployeePortal(tk.CTk):
         self.tabview = tk.CTkTabview(self)
         self.tabview.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="nsew")
         
-        # Create tabs
+        # Create tabs - Removed "👥 Customers" and "⚙️ Discount Rules"
         self.tabview.add("📋 Orders")
         self.tabview.add("🚚 Deliveries")
         self.tabview.add("📦 Inventory")
-        if self.is_manager:
-            self.tabview.add("👥 Customers")
-            self.tabview.add("⚙️ Discount Rules")
         
         # Setup each tab
         self.setup_orders_tab()
         self.setup_deliveries_tab()
         self.setup_inventory_tab()
-        
-        if self.is_manager:
-            self.setup_customers_tab()
-            self.setup_discounts_tab()
         
         # Navigation
         nav_frame = tk.CTkFrame(self, height=50)
@@ -894,164 +887,6 @@ class EmployeePortal(tk.CTk):
             font=("Helvetica", 12),
             text_color="#666666"
         ).pack(pady=20)
-    
-    def setup_customers_tab(self):
-        """Setup customers management tab (manager only)"""
-        tab = self.tabview.tab("👥 Customers")
-        
-        tk.CTkLabel(
-            tab,
-            text="Customer Management",
-            font=("Helvetica", 20, "bold")
-        ).pack(pady=20)
-        
-        # Customer search
-        search_frame = tk.CTkFrame(tab)
-        search_frame.pack(fill="x", padx=20, pady=10)
-        
-        tk.CTkLabel(search_frame, text="Search:").pack(side="left", padx=10)
-        search_entry = tk.CTkEntry(search_frame, placeholder_text="Search by name, email, or phone")
-        search_entry.pack(side="left", fill="x", expand=True, padx=10)
-        
-        tk.CTkButton(
-            search_frame,
-            text="Search",
-            width=80
-        ).pack(side="right", padx=10)
-        
-        # Customer list
-        list_frame = tk.CTkFrame(tab)
-        list_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        
-        # Sample customers
-        sample_customers = [
-            {"id": 1, "name": "John Smith", "email": "john@example.com", "phone": "028 1234 5678", "orders": 12},
-            {"id": 2, "name": "Sarah Johnson", "email": "sarah@example.com", "phone": "028 8765 4321", "orders": 8},
-            {"id": 3, "name": "Mike Wilson", "email": "mike@example.com", "phone": "028 5555 1234", "orders": 15},
-            {"id": 4, "name": "Emma Brown", "email": "emma@example.com", "phone": "028 9999 8888", "orders": 5}
-        ]
-        
-        for customer in sample_customers:
-            cust_frame = tk.CTkFrame(list_frame, height=50)
-            cust_frame.pack(fill="x", pady=2, padx=5)
-            cust_frame.grid_propagate(False)
-            
-            # Customer info
-            tk.CTkLabel(
-                cust_frame,
-                text=customer['name'],
-                font=("Helvetica", 12, "bold")
-            ).place(x=10, y=15)
-            
-            tk.CTkLabel(
-                cust_frame,
-                text=f"{customer['email']} | {customer['phone']}",
-                font=("Helvetica", 10),
-                text_color="#666666"
-            ).place(x=150, y=15)
-            
-            tk.CTkLabel(
-                cust_frame,
-                text=f"Orders: {customer['orders']}",
-                font=("Helvetica", 10, "bold"),
-                text_color="#2E7D32"
-            ).place(x=350, y=15)
-            
-            # Action buttons
-            btn_frame = tk.CTkFrame(cust_frame, fg_color="transparent")
-            btn_frame.place(x=450, y=10)
-            
-            tk.CTkButton(
-                btn_frame,
-                text="View",
-                width=60,
-                height=30
-            ).pack(side="left", padx=2)
-            
-            tk.CTkButton(
-                btn_frame,
-                text="Edit",
-                width=60,
-                height=30
-            ).pack(side="left", padx=2)
-    
-    def setup_discounts_tab(self):
-        """Setup discount rules tab (manager only)"""
-        tab = self.tabview.tab("⚙️ Discount Rules")
-        
-        tk.CTkLabel(
-            tab,
-            text="Discount Rules Management",
-            font=("Helvetica", 20, "bold")
-        ).pack(pady=20)
-        
-        # Create new rule button
-        tk.CTkButton(
-            tab,
-            text="+ Add New Discount Rule",
-            command=self.add_discount_rule,
-            height=40,
-            font=("Helvetica", 14),
-            fg_color="#2E7D32",
-            hover_color="#1B5E20"
-        ).pack(pady=10)
-        
-        # Rules list
-        rules_frame = tk.CTkFrame(tab)
-        rules_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        
-        # Sample rules
-        sample_rules = [
-            {"min_qty": 50, "discount": 5, "category": "All", "status": "Active"},
-            {"min_qty": 100, "discount": 10, "category": "Beef", "status": "Active"},
-            {"min_qty": 200, "discount": 15, "category": "All", "status": "Active"},
-            {"min_qty": 20, "discount": 3, "category": "Poultry", "status": "Expired"}
-        ]
-        
-        for rule in sample_rules:
-            rule_frame = tk.CTkFrame(rules_frame, height=60)
-            rule_frame.pack(fill="x", pady=5, padx=10)
-            rule_frame.grid_propagate(False)
-            
-            # Rule info
-            tk.CTkLabel(
-                rule_frame,
-                text=f"Min Quantity: {rule['min_qty']}kg → Discount: {rule['discount']}%",
-                font=("Helvetica", 12, "bold")
-            ).place(x=10, y=15)
-            
-            tk.CTkLabel(
-                rule_frame,
-                text=f"Category: {rule['category']}",
-                font=("Helvetica", 10),
-                text_color="#666666"
-            ).place(x=250, y=15)
-            
-            # Status badge
-            status_color = "#4CAF50" if rule['status'] == "Active" else "#757575"
-            tk.CTkLabel(
-                rule_frame,
-                text=rule['status'],
-                font=("Helvetica", 10, "bold"),
-                text_color="white",
-                fg_color=status_color,
-                corner_radius=10,
-                width=70,
-                height=25
-            ).place(x=400, y=17)
-    
-    def add_discount_rule(self):
-        """Add new discount rule"""
-        # In full implementation, open discount rule form
-        messagebox.showinfo(
-            "Add Discount Rule",
-            "This would open a form to:\n\n"
-            "1. Set minimum quantity threshold\n"
-            "2. Set discount percentage\n"
-            "3. Select applicable categories\n"
-            "4. Set start and end dates\n"
-            "5. Configure rule priority"
-        )
     
     def open_inventory_manager(self):
         """Open the Inventory Manager"""
