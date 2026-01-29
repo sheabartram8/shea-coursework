@@ -1,0 +1,3 @@
+EMPLOYEE - georgeross - 123456
+ADMIN - admin - admin123
+CUSTOMER - tizzrizz - 123456
