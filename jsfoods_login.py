@@ -107,28 +107,58 @@ class LoginApp(tk.CTk):
         )
         login_btn.pack(fill="x", padx=20, pady=(0, 20))
         
-        # Register link - FIXED: Better contrast
-        register_frame = tk.CTkFrame(main_frame, fg_color="transparent")
-        register_frame.pack(fill="x", pady=10)
+        # =========== IMPROVED REGISTER SECTION ===========
+        # Create a separate, more prominent section for registration
+        register_section = tk.CTkFrame(main_frame, fg_color="#F8FDF9", corner_radius=10)
+        register_section.pack(fill="x", pady=(20, 10), padx=10)
+        
+        # Add a subtle border for emphasis
+        register_section.configure(border_width=1, border_color="#C8E6C9")
+        
+        # Create a container frame for better layout control
+        register_container = tk.CTkFrame(register_section, fg_color="transparent")
+        register_container.pack(pady=15, padx=15)
+        
+        # Text and button in separate rows for better spacing
+        tk.CTkLabel(
+            register_container,
+            text="New to JS Foods?",
+            font=("Helvetica", 14, "bold"),
+            text_color="#1B5E20"
+        ).pack(pady=(0, 10))
         
         tk.CTkLabel(
-            register_frame,
-            text="New to JS Foods?",
-            font=("Helvetica", 12)
-        ).pack(side="left", padx=20)
+            register_container,
+            text="Create a free account to get started",
+            font=("Helvetica", 12),
+            text_color="#666666"
+        ).pack(pady=(0, 15))
         
-        register_link = tk.CTkButton(
-            register_frame,
-            text="Create Account",
+        # Enhanced Create Account button
+        register_btn = tk.CTkButton(
+            register_container,
+            text="CREATE ACCOUNT",
             command=self.open_register,
-            fg_color="#E8F5E9",
-            hover_color="#C8E6C9",
-            text_color="#1B5E20",
-            font=("Helvetica", 12, "bold"),
-            border_width=1,
-            border_color="#2E7D32"
+            height=45,
+            width=200,
+            font=("Helvetica", 14, "bold"),
+            fg_color="#2E7D32",
+            hover_color="#1B5E20",
+            corner_radius=8,
+            border_width=0,
+            text_color="white"
         )
-        register_link.pack(side="right", padx=20)
+        register_btn.pack(pady=(0, 5))
+        
+        # Optional: Add a small info text
+        tk.CTkLabel(
+            register_container,
+            text="✓ No credit card required\n✓ Get personalized recommendations",
+            font=("Helvetica", 10),
+            text_color="#666666",
+            justify="center"
+        ).pack(pady=(5, 0))
+        # =========== END OF IMPROVED SECTION ===========
         
         # Role selection (for quick testing)
         role_frame = tk.CTkFrame(main_frame, fg_color="transparent")
@@ -198,7 +228,7 @@ class LoginApp(tk.CTk):
         
         if user:
             self.current_user = user
-            print(f"Login successful! User ID: {user['user_id']}, Role: {user['role']}")  # FIXED: Changed 'id' to 'user_id'
+            print(f"Login successful! User ID: {user['user_id']}, Role: {user['role']}")
             messagebox.showinfo("Login Successful", f"Welcome, {user['first_name']}!")
             self.open_dashboard(user['role'])
         else:
