@@ -12,12 +12,13 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 
 class AdminPortal(tk.CTk):
     def open_inventory_manager(self):
         """Open the Inventory Manager"""
         self.destroy()
-        subprocess.Popen(["python", "jsfoods_inventory.py"])
+        subprocess.Popen([sys.executable, "jsfoods_inventory.py"])
         
     def __init__(self):
         super().__init__()
@@ -870,7 +871,7 @@ class AdminPortal(tk.CTk):
         """Return to main menu"""
         self.destroy()
         try:
-            subprocess.Popen(["python", "jsfoods_login.py"])
+            subprocess.Popen([sys.executable, "jsfoods_login.py"])
         except:
             messagebox.showinfo("Info", "Login program not found or cannot be launched.")
 

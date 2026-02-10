@@ -9,6 +9,7 @@ import re
 import sqlite3
 import subprocess
 from jsfoods_database import db
+import sys
 
 class LoginApp(tk.CTk):
     def __init__(self):
@@ -260,11 +261,11 @@ class LoginApp(tk.CTk):
         self.destroy()
         
         if role == "customer":
-            subprocess.Popen(["python", "jsfoods_customer.py"])
+            subprocess.Popen([sys.executable, "jsfoods_customer.py"])
         elif role in ["employee", "manager"]:
-            subprocess.Popen(["python", "jsfoods_employee.py"])
+            subprocess.Popen([sys.executable, "jsfoods_employee.py"])
         elif role == "owner":
-            subprocess.Popen(["python", "jsfoods_admin.py"])
+            subprocess.Popen([sys.executable, "jsfoods_admin.py"])
 
 
 class RegisterApp(tk.CTkToplevel):

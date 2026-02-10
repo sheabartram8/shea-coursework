@@ -6,6 +6,7 @@ Advanced Ordering System for Meat Wholesaler
 import customtkinter as tk
 import sqlite3
 import subprocess
+import sys
 
 DATABASE = 'jsfoods.db'
 
@@ -172,7 +173,7 @@ class JSFoodsApp(tk.CTk):
     def open_login(self):
         """Open login window"""
         self.destroy()  # Close the main window
-        subprocess.Popen(["python", "jsfoods_login.py"])
+        subprocess.Popen([sys.executable, "jsfoods_login.py"])
 
 if __name__ == "__main__":
     app = JSFoodsApp()
