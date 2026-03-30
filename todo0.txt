@@ -1,0 +1,39 @@
+
+
+What You’ve Done Well
+
+1. Professional Structure:** You haven't just written one long file; you’ve broken the project down into logical parts (Admin, Customer, Inventory, etc.). This is exactly what the exam board means by a **"modular solution."** It makes the code much easier to read and test.
+2. User Interface (UI):** Using `customtkinter` makes the app look modern and professional. You’ve thought about the different roles (Owner, Employee, Customer), which shows you understand the "audience and purpose" of the software.
+3. Database Integration:** You have a working SQLite database that handles complex relationships, like linking orders to specific customers. This moves you out of the "basic" mark bands.
+4. Code Readability:** Your variable names (like `price_per_kg` or `order_items`) are clear and self-explanatory. This is called using **"self-documenting identifiers,"** and it’s a big plus in the mark scheme.
+
+---
+
+What Needs Improvement (The "Road to Band 4")
+To get into the 19–25 mark range**, you need to show the moderator that you can handle complex computer science concepts, 
+not just "make a program that works."
+
+1. Data Normalisation (3rd Normal Form)
+1.1 The Issue: Currently, your `users` table stores addresses, and your `products` table stores categories as plain text. If you have 100 products in the "Beef" category and you want to rename it to "Premium Beef," you’d have to change 100 rows.
+1.1.1 The Fix: Create separate tables for `Categories` and `Addresses`. Link them using Foreign Keys. This proves you can create a "well-structured data model" that handles data efficiently without errors.
+
+
+2. Advanced Algorithms (Recursion)
+2.1 The Issue: Most of your data searching is done through simple SQL queries. While this is fine for a real app, the WJEC mark scheme specifically looks for "Recursive Algorithms."
+2.1.1 The Fix: Implement a Recursive Binary Search. Instead of just asking the database for an item, pull your inventory into a list and use a recursive function to find a specific product ID. It shows you understand "complex user-defined routines."
+
+
+3. Professional Error Handling
+3.1 The Issue: Your current error handling uses basic `try...except` blocks that usually just print a message or show a basic popup.
+3.1.1 The Fix: Use Custom Exceptions. Create specific errors like `InsufficientStockError` or `InvalidEmailError`. This makes your program "robust," meaning it doesn't just crash; it knows exactly what went wrong and handles it gracefully. 
+
+
+4. Annotation and Documentation
+4.1 The Issue: While your variable names are good, some of your more complex functions lack Docstrings (the `""" """` comments at the top of functions).
+4.1.1 The Fix: Add a Docstring to every function explaining exactly what the inputs (`parameters`) are and what the function `returns`. 
+This makes the code "fully self-documenting," which is a requirement for the top marks.
+It also shows the marker you are aware of what the code is doing 
+
+---
+
+You do not have to implement these changes, they are suggestions. But the project at present would be mark band 3

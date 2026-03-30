@@ -1,5 +1,12 @@
 # JS Foods Advanced Ordering System
 
+Install Requirements 
+
+In the terminal, run the following command 
+pip install -r requirements.txt
+
+
+
 ## Overview
 
 A comprehensive digital ordering and management system for JS Foods, a premium meat wholesaler based in Randalstown, Co. Antrim. This system replaces outdated paper-based processes with a modern, secure, and efficient digital solution.
