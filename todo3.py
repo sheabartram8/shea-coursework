@@ -118,9 +118,9 @@ You should include these notes in your documentation:
 Exception Handling: "I have moved beyond basic error catching by implementing a custom exception hierarchy. 
 This allows the system to distinguish between user input errors (ValidationError) 
 and critical business logic failures (InsufficientStockError),  providing specific feedback to the user."
-
-Validation: "I utilised Regular Expressions (Regex) for email validation 
-and created a centralised Validator class to ensure consistent data integrity across the 'Admin', 'Employee', and 'Customer' modules."
+ressions (Regex) for email validation 
+and created a cent
+Validation: "I utilised Regular Expralised Validator class to ensure consistent data integrity across the 'Admin', 'Employee', and 'Customer' modules."
 
 '''
 

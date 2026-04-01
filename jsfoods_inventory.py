@@ -303,6 +303,15 @@ class InventoryManager(tk.CTk):
         # Search and filter
         filter_frame = tk.CTkFrame(controls_frame, fg_color="transparent")
         filter_frame.pack(side="right", padx=20)
+
+        tk.CTkButton(
+            controls_frame,
+            text="Delete Product",
+            command=self.delete_product,
+            width=100,
+            fg_color="#F44336",  # Red
+            hover_color="#D32F2F"
+        ).pack(side="left", padx=5)
         
         tk.CTkLabel(filter_frame, text="Category:").pack(side="left", padx=5)
         self.category_filter = tk.StringVar(value="All")
@@ -404,7 +413,65 @@ class InventoryManager(tk.CTk):
                 
         except sqlite3.Error as e:
             messagebox.showerror("Database Error", f"Could not load inventory: {e}")
-    
+    def delete_product(self):
+        """Delete the selected product, but only if it has no orders or stock transactions."""
+        selection = self.inv_tree.selection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a product to delete")
+            return
+
+        # Get product ID and name from the selected row
+        values = self.inv_tree.item(selection[0])['values']
+        product_id = values[0]
+        product_name = values[1]
+
+        # Check if product is used in any order items
+        try:
+            conn = sqlite3.connect('jsfoods.db')
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT COUNT(*) FROM order_items WHERE product_id = ?", (product_id,))
+            order_items_count = cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM stock_transactions WHERE product_id = ?", (product_id,))
+            stock_transactions_count = cursor.fetchone()[0]
+
+            conn.close()
+
+            if order_items_count > 0 or stock_transactions_count > 0:
+                messagebox.showerror(
+                    "Cannot Delete",
+                    f"Cannot delete '{product_name}' because it has existing records:\n"
+                    f"• Order items: {order_items_count}\n"
+                    f"• Stock transactions: {stock_transactions_count}\n\n"
+                    "Consider deactivating the product instead."
+                )
+                return
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Error checking product usage: {e}")
+            return
+
+        # Confirm deletion
+        if messagebox.askyesno(
+            "Confirm Delete",
+            f"Are you sure you want to permanently delete '{product_name}'?\n"
+            "This action cannot be undone."
+        ):
+            try:
+                conn = sqlite3.connect('jsfoods.db')
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM products WHERE product_id = ?", (product_id,))
+                conn.commit()
+                conn.close()
+
+                messagebox.showinfo("Success", f"Product '{product_name}' deleted successfully.")
+                self.filter_inventory()   # Refresh the inventory list
+                self.load_inventory()     # Update header statistics
+                self.load_low_stock()     # Update low stock alerts tab
+
+            except sqlite3.Error as e:
+                messagebox.showerror("Database Error", f"Could not delete product: {e}")
     def add_product(self):
         """Add new product"""
         add_window = tk.CTkToplevel(self)
@@ -1106,6 +1173,24 @@ class InventoryManager(tk.CTk):
         """Return to main menu"""
         self.destroy()
         subprocess.Popen(["python", "jsfoods_main.py"])
+    
+    
+    def search_by_id(self):
+            """UI Trigger for recursive search"""
+            try:
+                search_id = int(self.search_entry.get())
+                # Call the recursive search from the database module
+                result = db.get_product_recursive(search_id)
+                
+                if result:
+                    messagebox.showinfo("Product Found", 
+                        f"Name: {result['name']}\n"
+                        f"Stock: {result['current_stock_kg']}kg\n"
+                        f"Price: £{result['price_per_kg']}/kg")
+                else:
+                    messagebox.showwarning("Not Found", f"No product with ID {search_id}")
+            except ValueError:
+                messagebox.showerror("Error", "Please enter a valid numeric Product ID")
 
 
 if __name__ == "__main__":

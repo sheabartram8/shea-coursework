@@ -5,10 +5,8 @@ Database operations and helper functions
 
 import sqlite3
 import hashlib
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
-import sys
 
 DATABASE = 'jsfoods.db'
 
@@ -20,7 +18,7 @@ class DatabaseManager:
         self.cursor = None
         self.connect()
         self.create_tables()
-        self.create_default_users()
+        self.create_default_data()
     
     def connect(self):
         """Connect to database"""
@@ -28,6 +26,8 @@ class DatabaseManager:
             self.conn = sqlite3.connect(DATABASE, check_same_thread=False)
             self.conn.row_factory = sqlite3.Row
             self.cursor = self.conn.cursor()
+            # Enable foreign keys
+            self.cursor.execute("PRAGMA foreign_keys = ON")
             print("✅ Database connected successfully")
         except sqlite3.Error as e:
             print(f"❌ Database connection error: {e}")
@@ -42,7 +42,7 @@ class DatabaseManager:
                     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT UNIQUE NOT NULL,
                     password TEXT NOT NULL,
-                    role TEXT NOT NULL,
+                    role TEXT NOT NULL CHECK(role IN ('customer', 'employee', 'manager', 'owner')),
                     first_name TEXT NOT NULL,
                     last_name TEXT NOT NULL,
                     email TEXT UNIQUE NOT NULL,
@@ -52,12 +52,14 @@ class DatabaseManager:
                 )
             ''')
             
-            # Products table
+            # Products table (with category as text, unit, description)
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS products (
                     product_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     category TEXT NOT NULL,
+                    description TEXT,
+                    unit TEXT DEFAULT 'kg',
                     current_stock_kg REAL DEFAULT 0,
                     min_stock_level REAL DEFAULT 10,
                     is_active INTEGER DEFAULT 1,
@@ -72,7 +74,7 @@ class DatabaseManager:
                     customer_id INTEGER NOT NULL,
                     order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     total_amount REAL NOT NULL,
-                    status TEXT DEFAULT 'pending',
+                    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'confirmed', 'processing', 'ready', 'delivered', 'cancelled')),
                     delivery_date DATE,
                     delivery_address TEXT,
                     payment_method TEXT DEFAULT 'cash',
@@ -96,16 +98,15 @@ class DatabaseManager:
                 )
             ''')
             
-            # Inventory log table
+            # Stock transactions table
             self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS inventory_log (
-                    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CREATE TABLE IF NOT EXISTS stock_transactions (
+                    transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     product_id INTEGER NOT NULL,
-                    change_amount REAL NOT NULL,
-                    new_stock REAL NOT NULL,
-                    reason TEXT,
-                    logged_by INTEGER NOT NULL,
-                    log_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    transaction_type TEXT NOT NULL,
+                    quantity_kg REAL NOT NULL,
+                    notes TEXT,
+                    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (product_id) REFERENCES products(product_id)
                 )
             ''')
@@ -130,9 +131,10 @@ class DatabaseManager:
                     route_name TEXT NOT NULL,
                     employee_id INTEGER,
                     delivery_date DATE NOT NULL,
+                    status TEXT DEFAULT 'scheduled',
                     vehicle_info TEXT,
                     notes TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    FOREIGN KEY (employee_id) REFERENCES users(user_id)
                 )
             ''')
             
@@ -148,97 +150,69 @@ class DatabaseManager:
                 )
             ''')
             
+            # Inventory log table (for audit, optional)
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS inventory_log (
+                    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    product_id INTEGER NOT NULL,
+                    change_amount REAL NOT NULL,
+                    new_stock REAL NOT NULL,
+                    reason TEXT,
+                    logged_by INTEGER,
+                    log_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (product_id) REFERENCES products(product_id),
+                    FOREIGN KEY (logged_by) REFERENCES users(user_id)
+                )
+            ''')
+            
             self.conn.commit()
             print("✅ Database tables created successfully")
             
         except sqlite3.Error as e:
             print(f"❌ Error creating tables: {e}")
     
-    def create_default_users(self):
-        """Create default test users if they don't exist"""
-        default_users = [
-            {
-                'username': 'john_customer',
-                'password': 'password123',
-                'role': 'customer',
-                'first_name': 'John',
-                'last_name': 'Doe',
-                'email': 'john@example.com',
-                'phone': '1234567890',
-                'address': '123 Main St, City'
-            },
-            {
-                'username': 'jane_employee',
-                'password': 'password123',
-                'role': 'employee',
-                'first_name': 'Jane',
-                'last_name': 'Smith',
-                'email': 'jane@example.com',
-                'phone': '9876543210',
-                'address': '456 Oak Ave, Town'
-            },
-            {
-                'username': 'bob_manager',
-                'password': 'password123',
-                'role': 'manager',
-                'first_name': 'Bob',
-                'last_name': 'Johnson',
-                'email': 'bob@example.com',
-                'phone': '5551234567',
-                'address': '789 Pine Rd, Village'
-            },
-            {
-                'username': 'admin',
-                'password': 'admin123',
-                'role': 'owner',
-                'first_name': 'Admin',
-                'last_name': 'User',
-                'email': 'admin@example.com',
-                'phone': '9998887777',
-                'address': 'Admin Building, HQ'
-            }
-        ]
-        
-        for user in default_users:
-            try:
-                # Check if user exists
-                self.cursor.execute(
-                    "SELECT user_id FROM users WHERE username = ? OR email = ?",
-                    (user['username'], user['email'])
-                )
-                existing_user = self.cursor.fetchone()
-                
-                if not existing_user:
-                    # Create user with hashed password
-                    hashed_password = self.hash_password(user['password'])
-                    
-                    self.cursor.execute('''
-                        INSERT INTO users (username, password, role, first_name, last_name, email, phone, address)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (
-                        user['username'],
-                        hashed_password,
-                        user['role'],
-                        user['first_name'],
-                        user['last_name'],
-                        user['email'],
-                        user['phone'],
-                        user['address']
-                    ))
-                    print(f"✅ Created default user: {user['username']}")
-                    
-            except sqlite3.IntegrityError as e:
-                print(f"⚠️ User creation integrity error for {user['username']}: {e}")
-            except Exception as e:
-                print(f"❌ Error creating default user {user['username']}: {e}")
-        
-        self.conn.commit()
-        print("✅ Default users setup complete")
-    
-    def close(self):
-        """Close database connection"""
-        if self.conn:
-            self.conn.close()
+    def create_default_data(self):
+        """Seed database with default data"""
+        try:
+            # Insert default admin user
+            admin_pass = self.hash_password("admin123")
+            self.cursor.execute('''
+                INSERT OR IGNORE INTO users (username, password, role, first_name, last_name, email)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', ('admin', admin_pass, 'owner', 'System', 'Admin', 'admin@jsfoods.com'))
+            
+            # Insert default users
+            default_users = [
+                ('john_customer', 'password123', 'customer', 'John', 'Doe', 'john@example.com', '1234567890', '123 Main St'),
+                ('jane_employee', 'password123', 'employee', 'Jane', 'Smith', 'jane@example.com', '9876543210', '456 Oak Ave'),
+                ('bob_manager', 'password123', 'manager', 'Bob', 'Johnson', 'bob@example.com', '5551234567', '789 Pine Rd')
+            ]
+            for user in default_users:
+                hashed = self.hash_password(user[1])
+                self.cursor.execute('''
+                    INSERT OR IGNORE INTO users (username, password, role, first_name, last_name, email, phone, address)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (user[0], hashed, user[2], user[3], user[4], user[5], user[6], user[7]))
+            
+            # Insert sample products
+            sample_products = [
+                ('Beef Sirloin', 'Beef', 'Premium beef sirloin', 12.50, 100, 20, 'kg'),
+                ('Chicken Breast', 'Poultry', 'Boneless chicken breast', 8.50, 150, 25, 'kg'),
+                ('Lamb Chops', 'Lamb', 'Fresh lamb chops', 15.00, 80, 15, 'kg'),
+                ('Pork Belly', 'Pork', 'Crispy pork belly', 10.00, 120, 20, 'kg'),
+                ('Whole Chicken', 'Poultry', 'Fresh whole chicken', 6.50, 200, 30, 'kg'),
+                ('Ribeye Steak', 'Beef', 'Premium ribeye', 18.00, 60, 10, 'kg')
+            ]
+            for prod in sample_products:
+                self.cursor.execute('''
+                    INSERT OR IGNORE INTO products (name, category, description, price_per_kg, current_stock_kg, min_stock_level, unit)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', prod)
+            
+            self.conn.commit()
+            print("✅ Default data inserted")
+        except sqlite3.Error as e:
+            print(f"⚠️ Seed data error: {e}")
     
     def hash_password(self, password: str) -> str:
         """Hash password for security"""
@@ -247,40 +221,22 @@ class DatabaseManager:
     def verify_user(self, username: str, password: str) -> Optional[Dict]:
         """Verify user credentials"""
         try:
-            # Check if user exists
             self.cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
             user = self.cursor.fetchone()
-            
             if not user:
-                print(f"❌ User '{username}' not found")
                 return None
-            
-            # Hash the provided password
-            hashed_input_password = self.hash_password(password)
-            
-            # Compare with stored hash
-            stored_password = user['password']
-            
-            if hashed_input_password == stored_password:
-                print(f"✅ Login successful for: {username}")
+            hashed_input = self.hash_password(password)
+            if hashed_input == user['password']:
                 return dict(user)
-            else:
-                print(f"❌ Password mismatch for: {username}")
-                return None
-                
+            return None
         except sqlite3.Error as e:
             print(f"❌ Login error: {e}")
-            return None
-        except Exception as e:
-            print(f"❌ Unexpected error in verify_user: {e}")
             return None
     
     def create_user(self, user_data: Dict) -> bool:
         """Create new user"""
         try:
-            # Hash password
             hashed_password = self.hash_password(user_data['password'])
-            
             self.cursor.execute('''
                 INSERT INTO users (username, password, role, first_name, last_name, email, phone, address)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -295,26 +251,20 @@ class DatabaseManager:
                 user_data.get('address', '')
             ))
             self.conn.commit()
-            print(f"✅ User {user_data['username']} created successfully")
             return True
-        except sqlite3.IntegrityError as e:
-            print(f"❌ User creation integrity error: {e}")
+        except sqlite3.IntegrityError:
             return False
         except sqlite3.Error as e:
             print(f"❌ User creation error: {e}")
             return False
     
     def get_users(self, role: str = None) -> List[Dict]:
-        """Get users with optional role filtering"""
+        """Get users with optional role filter"""
         try:
             if role:
-                self.cursor.execute(
-                    "SELECT * FROM users WHERE role = ? ORDER BY last_name, first_name",
-                    (role,)
-                )
+                self.cursor.execute("SELECT * FROM users WHERE role = ? ORDER BY last_name, first_name", (role,))
             else:
                 self.cursor.execute("SELECT * FROM users ORDER BY last_name, first_name")
-            
             return [dict(row) for row in self.cursor.fetchall()]
         except sqlite3.Error as e:
             print(f"❌ Get users error: {e}")
@@ -334,35 +284,22 @@ class DatabaseManager:
         """Get user statistics"""
         try:
             stats = {}
-            
-            # Total customers
             self.cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'customer'")
             stats['total_customers'] = self.cursor.fetchone()[0]
-            
-            # Total employees
             self.cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'employee'")
             stats['total_employees'] = self.cursor.fetchone()[0]
-            
-            # Total managers
             self.cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'manager'")
             stats['total_managers'] = self.cursor.fetchone()[0]
-            
-            # New users this month
             month_start = datetime.now().replace(day=1).strftime("%Y-%m-%d")
-            self.cursor.execute(
-                "SELECT COUNT(*) FROM users WHERE registration_date >= ?",
-                (month_start,)
-            )
+            self.cursor.execute("SELECT COUNT(*) FROM users WHERE registration_date >= ?", (month_start,))
             stats['new_this_month'] = self.cursor.fetchone()[0]
-            
             return stats
-            
         except sqlite3.Error as e:
             print(f"❌ Get user stats error: {e}")
             return {}
-
+    
     def get_products(self, category: str = None, active_only: bool = True) -> List[Dict]:
-        """Get products with optional filtering"""
+        """Get products with optional category filter"""
         try:
             if category:
                 query = "SELECT * FROM products WHERE category = ?"
@@ -370,11 +307,11 @@ class DatabaseManager:
                 if active_only:
                     query += " AND is_active = 1"
                 self.cursor.execute(query, params)
-            elif active_only:
-                self.cursor.execute("SELECT * FROM products WHERE is_active = 1")
             else:
-                self.cursor.execute("SELECT * FROM products")
-            
+                query = "SELECT * FROM products"
+                if active_only:
+                    query += " WHERE is_active = 1"
+                self.cursor.execute(query)
             return [dict(row) for row in self.cursor.fetchall()]
         except sqlite3.Error as e:
             print(f"❌ Get products error: {e}")
@@ -391,28 +328,30 @@ class DatabaseManager:
             return None
     
     def update_stock(self, product_id: int, change_amount: float, reason: str, user_id: int) -> bool:
-        """Update product stock level"""
+        """Update product stock and log transaction"""
         try:
             # Get current stock
             self.cursor.execute("SELECT current_stock_kg FROM products WHERE product_id = ?", (product_id,))
             result = self.cursor.fetchone()
             if not result:
                 return False
-                
             current_stock = result[0]
             new_stock = current_stock + change_amount
             
             # Update product stock
-            self.cursor.execute(
-                "UPDATE products SET current_stock_kg = ? WHERE product_id = ?",
-                (new_stock, product_id)
-            )
+            self.cursor.execute("UPDATE products SET current_stock_kg = ? WHERE product_id = ?", (new_stock, product_id))
             
-            # Log the change
+            # Log to stock_transactions
+            transaction_type = "adjustment"
+            if change_amount > 0:
+                transaction_type = "receive"
+            elif change_amount < 0:
+                transaction_type = "sale"
+            
             self.cursor.execute('''
-                INSERT INTO inventory_log (product_id, change_amount, new_stock, reason, logged_by)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (product_id, change_amount, new_stock, reason, user_id))
+                INSERT INTO stock_transactions (product_id, transaction_type, quantity_kg, notes)
+                VALUES (?, ?, ?, ?)
+            ''', (product_id, transaction_type, abs(change_amount), reason))
             
             self.conn.commit()
             return True
@@ -420,13 +359,26 @@ class DatabaseManager:
             print(f"❌ Update stock error: {e}")
             return False
     
+    def get_low_stock_items(self, threshold_percent: float = 0.2) -> List[Dict]:
+        """Get items with low stock"""
+        try:
+            self.cursor.execute('''
+                SELECT *,
+                       (current_stock_kg / min_stock_level) as stock_percentage
+                FROM products
+                WHERE is_active = 1
+                AND current_stock_kg <= min_stock_level * ?
+                ORDER BY stock_percentage ASC
+            ''', (threshold_percent,))
+            return [dict(row) for row in self.cursor.fetchall()]
+        except sqlite3.Error as e:
+            print(f"❌ Low stock error: {e}")
+            return []
+    
     def create_order(self, order_data: Dict, items: List[Dict]) -> Optional[int]:
         """Create new order with items"""
         try:
-            # Start transaction
             self.cursor.execute("BEGIN TRANSACTION")
-            
-            # Insert order
             self.cursor.execute('''
                 INSERT INTO orders (customer_id, total_amount, delivery_date, delivery_address, payment_method, notes)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -438,33 +390,17 @@ class DatabaseManager:
                 order_data.get('payment_method', 'cash'),
                 order_data.get('notes', '')
             ))
-            
             order_id = self.cursor.lastrowid
             
-            # Insert order items
             for item in items:
-                # Calculate discount
                 discount = self.calculate_discount(item['product_id'], item['quantity_kg'])
-                
+                final_price = item['quantity_kg'] * item['unit_price'] * (1 - discount/100)
                 self.cursor.execute('''
                     INSERT INTO order_items (order_id, product_id, quantity_kg, unit_price, discount_percent, final_price)
                     VALUES (?, ?, ?, ?, ?, ?)
-                ''', (
-                    order_id,
-                    item['product_id'],
-                    item['quantity_kg'],
-                    item['unit_price'],
-                    discount,
-                    item['quantity_kg'] * item['unit_price'] * (1 - discount/100)
-                ))
-                
-                # Update stock
-                self.update_stock(
-                    item['product_id'],
-                    -item['quantity_kg'],
-                    f"Order #{order_id}",
-                    order_data['customer_id']
-                )
+                ''', (order_id, item['product_id'], item['quantity_kg'], item['unit_price'], discount, final_price))
+                # Update stock (negative change)
+                self.update_stock(item['product_id'], -item['quantity_kg'], f"Order #{order_id}", order_data['customer_id'])
             
             self.conn.commit()
             return order_id
@@ -474,15 +410,14 @@ class DatabaseManager:
             return None
     
     def calculate_discount(self, product_id: int, quantity: float) -> float:
-        """Calculate discount based on quantity"""
+        """Calculate discount based on quantity and product category"""
         try:
             # Get product category
             self.cursor.execute("SELECT category FROM products WHERE product_id = ?", (product_id,))
-            result = self.cursor.fetchone()
-            if not result:
+            row = self.cursor.fetchone()
+            if not row:
                 return 0.0
-            category = result[0]
-            
+            category = row[0]
             # Get applicable discount rules
             self.cursor.execute('''
                 SELECT discount_percent FROM discount_rules 
@@ -494,7 +429,6 @@ class DatabaseManager:
                 ORDER BY min_quantity_kg DESC
                 LIMIT 1
             ''', (quantity, f"%{category}%"))
-            
             result = self.cursor.fetchone()
             return result[0] if result else 0.0
         except sqlite3.Error as e:
@@ -512,7 +446,6 @@ class DatabaseManager:
                 ORDER BY o.order_date DESC
                 LIMIT ?
             ''', (user_id, limit))
-            
             return [dict(row) for row in self.cursor.fetchall()]
         except sqlite3.Error as e:
             print(f"❌ Get user orders error: {e}")
@@ -521,20 +454,16 @@ class DatabaseManager:
     def get_order_details(self, order_id: int) -> Tuple[Optional[Dict], List[Dict]]:
         """Get order details with items"""
         try:
-            # Get order
             self.cursor.execute("SELECT * FROM orders WHERE order_id = ?", (order_id,))
             order = self.cursor.fetchone()
             if not order:
                 return None, []
-            
-            # Get order items with product info
             self.cursor.execute('''
                 SELECT oi.*, p.name as product_name, p.category
                 FROM order_items oi
                 JOIN products p ON oi.product_id = p.product_id
                 WHERE oi.order_id = ?
             ''', (order_id,))
-            
             items = [dict(row) for row in self.cursor.fetchall()]
             return dict(order), items
         except sqlite3.Error as e:
@@ -544,7 +473,6 @@ class DatabaseManager:
     def get_sales_report(self, start_date: str, end_date: str) -> Dict:
         """Generate sales report for date range"""
         try:
-            # Total sales
             self.cursor.execute('''
                 SELECT 
                     COUNT(*) as total_orders,
@@ -554,11 +482,7 @@ class DatabaseManager:
                 WHERE order_date BETWEEN ? AND ?
                 AND status != 'cancelled'
             ''', (start_date, end_date))
-            
-            row = self.cursor.fetchone()
-            totals = dict(row) if row else {}
-            
-            # Sales by category
+            totals = dict(self.cursor.fetchone()) or {}
             self.cursor.execute('''
                 SELECT 
                     p.category,
@@ -573,10 +497,7 @@ class DatabaseManager:
                 GROUP BY p.category
                 ORDER BY total_revenue DESC
             ''', (start_date, end_date))
-            
             by_category = [dict(row) for row in self.cursor.fetchall()]
-            
-            # Top products
             self.cursor.execute('''
                 SELECT 
                     p.name,
@@ -593,9 +514,7 @@ class DatabaseManager:
                 ORDER BY total_revenue DESC
                 LIMIT 10
             ''', (start_date, end_date))
-            
             top_products = [dict(row) for row in self.cursor.fetchall()]
-            
             return {
                 'period': {'start': start_date, 'end': end_date},
                 'totals': totals,
@@ -605,24 +524,6 @@ class DatabaseManager:
         except sqlite3.Error as e:
             print(f"❌ Sales report error: {e}")
             return {}
-    
-    def get_low_stock_items(self, threshold_percent: float = 0.2) -> List[Dict]:
-        """Get items with low stock"""
-        try:
-            self.cursor.execute('''
-                SELECT 
-                    p.*,
-                    (p.current_stock_kg / p.min_stock_level) as stock_percentage
-                FROM products p
-                WHERE p.is_active = 1
-                AND p.current_stock_kg <= p.min_stock_level * ?
-                ORDER BY stock_percentage ASC
-            ''', (threshold_percent,))
-            
-            return [dict(row) for row in self.cursor.fetchall()]
-        except sqlite3.Error as e:
-            print(f"❌ Low stock error: {e}")
-            return []
     
     def create_delivery_route(self, route_data: Dict) -> bool:
         """Create delivery route"""
@@ -637,7 +538,6 @@ class DatabaseManager:
                 route_data.get('vehicle_info', ''),
                 route_data.get('notes', '')
             ))
-            
             self.conn.commit()
             return True
         except sqlite3.Error as e:
@@ -651,12 +551,16 @@ class DatabaseManager:
                 INSERT INTO route_orders (route_id, order_id, sequence_number)
                 VALUES (?, ?, ?)
             ''', (route_id, order_id, sequence))
-            
             self.conn.commit()
             return True
         except sqlite3.Error as e:
             print(f"❌ Assign order to route error: {e}")
             return False
+    
+    def close(self):
+        """Close database connection"""
+        if self.conn:
+            self.conn.close()
 
 # Singleton instance
 db = DatabaseManager()
