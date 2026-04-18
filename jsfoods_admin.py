@@ -13,6 +13,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
+import re
 
 class AdminPortal(tk.CTk):
     def open_inventory_manager(self):
@@ -676,6 +677,9 @@ class AdminPortal(tk.CTk):
             # Basic validation
             if not all([username, password, first_name, last_name, email]):
                 messagebox.showerror("Error", "Please fill in all required fields")
+                return
+            if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
+                messagebox.showerror("Error", "Please enter a valid email address (e.g., name@domain.com)")
                 return
             
             try:
