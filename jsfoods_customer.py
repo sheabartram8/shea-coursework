@@ -3,6 +3,8 @@ JS Foods Customer Portal
 Customer ordering interface
 """
 
+from xml.parsers.expat import errors
+
 import customtkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
@@ -721,22 +723,16 @@ class CheckoutWindow(tk.CTkToplevel):
         return next_day.strftime("%Y-%m-%d")
     
     def validate_checkout(self):
-        """Validate checkout form"""
         errors = []
-        
-        # Validate delivery date
         try:
             delivery_date = datetime.strptime(self.delivery_date.get(), "%Y-%m-%d")
             if delivery_date.date() < datetime.now().date():
                 errors.append("Delivery date cannot be in the past")
+            # NEW: weekend check
+            if delivery_date.weekday() >= 5:   # 5=Saturday, 6=Sunday
+                errors.append("Delivery is only available Monday–Friday. Please choose a weekday.")
         except ValueError:
             errors.append("Please enter a valid date (YYYY-MM-DD)")
-        
-        # Validate address
-        address = self.address_text.get("1.0", "end-1c").strip()
-        if not address:
-            errors.append("Delivery address is required")
-        
         return errors
     
     def place_order(self):
