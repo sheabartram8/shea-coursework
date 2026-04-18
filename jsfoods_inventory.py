@@ -599,8 +599,43 @@ class InventoryManager(tk.CTk):
                         VALUES (?, ?, ?, ?)
                     ''', (product_id, "initial", stock, f"Initial stock for new product '{name}'"))
                     
+                    
+                   
+                    
+                            # ✅ NEW: Check for duplicate product name
+                    cursor.execute("SELECT product_id FROM products WHERE name = ?", (name,))
+                    if cursor.fetchone():
+                        messagebox.showerror("Error", f"A product named '{name}' already exists. Use a different name.")
+                        conn.close()
+                        return
+
+                    # Insert new product (only if no duplicate)
+                    cursor.execute('''
+                        INSERT INTO products 
+                        (name, category, price_per_kg, current_stock_kg, min_stock_level, unit, description, is_active)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (name, category_var.get(), price, stock, min_stock, "kg", description, 1))
+                    
+                    conn.commit()
+                    product_id = cursor.lastrowid
+
+                    # Record initial stock transaction
+                    cursor.execute('''
+                        INSERT INTO stock_transactions 
+                        (product_id, transaction_type, quantity_kg, notes)
+                        VALUES (?, ?, ?, ?)
+                    ''', (product_id, "initial", stock, f"Initial stock for new product '{name}'"))
+                    
                     conn.commit()
                     conn.close()
+                    
+                    messagebox.showinfo("Product Added", f"Product '{name}' added successfully!")
+                    add_window.destroy()
+                    self.filter_inventory()
+                    self.load_inventory()
+                    
+                except sqlite3.Error as e:
+                    messagebox.showerror("Database Error", f"Could not save product: {e}")
                     
                     messagebox.showinfo(
                         "Product Added",
