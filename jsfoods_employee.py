@@ -451,46 +451,60 @@ class EmployeePortal(tk.CTk):
         if not selection:
             messagebox.showwarning("No Selection", "Please select an order first")
             return
-        
+
         order_id = self.orders_tree.item(selection[0])['values'][0]
         current_status = self.orders_tree.item(selection[0])['values'][4]
-        
+
         # Create status update window
         status_window = tk.CTkToplevel(self)
         status_window.title(f"Update Order #{order_id} Status")
-        status_window.geometry("400x300")
-        status_window.transient(self)  # Set as transient to main window
-        status_window.grab_set()  # Make it modal
-        status_window.lift()  # Bring to front
-        
+        status_window.geometry("400x450")
+        status_window.resizable(True, True)
+        status_window.transient(self)
+        status_window.grab_set()
+        status_window.lift()
+
+        # Main container using CTkFrame with grid layout to keep button at bottom
+        main_frame = tk.CTkFrame(status_window)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        main_frame.grid_rowconfigure(0, weight=0)  # header
+        main_frame.grid_rowconfigure(1, weight=1)  # scrollable area
+        main_frame.grid_rowconfigure(2, weight=0)  # button
+        main_frame.grid_columnconfigure(0, weight=1)
+
+        # Header
+        header_frame = tk.CTkFrame(main_frame, fg_color="transparent")
+        header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         tk.CTkLabel(
-            status_window,
+            header_frame,
             text=f"Update Order #{order_id} Status",
             font=("Helvetica", 16, "bold")
-        ).pack(pady=20)
-        
+        ).pack()
         tk.CTkLabel(
-            status_window,
+            header_frame,
             text=f"Current Status: {current_status.title()}",
             font=("Helvetica", 12)
-        ).pack(pady=10)
-        
-        # Status selection
+        ).pack()
+
+        # Scrollable area for radio buttons
+        scroll_frame = tk.CTkScrollableFrame(main_frame, label_text="Select New Status")
+        scroll_frame.grid(row=1, column=0, sticky="nsew", pady=10)
+
         status_var = tk.StringVar(value=current_status)
-        status_frame = tk.CTkFrame(status_window, fg_color="transparent")
-        status_frame.pack(pady=20)
-        
         statuses = ["pending", "confirmed", "processing", "ready", "delivered", "cancelled"]
-        
+
         for status in statuses:
             tk.CTkRadioButton(
-                status_frame,
+                scroll_frame,
                 text=status.title(),
                 variable=status_var,
                 value=status
-            ).pack(pady=5)
-        
-        # Update button
+            ).pack(pady=5, anchor="w", padx=10)
+
+        # Button frame (fixed at bottom)
+        button_frame = tk.CTkFrame(main_frame, fg_color="transparent")
+        button_frame.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+
         def update_status():
             new_status = status_var.get()
             try:
@@ -501,22 +515,22 @@ class EmployeePortal(tk.CTk):
                     (new_status, order_id)
                 )
                 conn.commit()
-                
                 messagebox.showinfo("Success", f"Order status updated to {new_status}")
                 status_window.destroy()
                 self.load_orders()
-                
             except sqlite3.Error as e:
                 messagebox.showerror("Database Error", f"Could not update status: {e}")
-        
+
         tk.CTkButton(
-            status_window,
-            text="Update Status",
+            button_frame,
+            text="✅ Update Status",
             command=update_status,
             fg_color="#2E7D32",
-            hover_color="#1B5E20"
-        ).pack(pady=20)
-    
+            hover_color="#1B5E20",
+            height=40,
+            font=("Helvetica", 12, "bold")
+        ).pack(fill="x", padx=20)
+        
     def assign_to_delivery(self):
         """Assign order to delivery route"""
         selection = self.orders_tree.selection()
